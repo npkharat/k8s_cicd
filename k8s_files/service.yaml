@@ -1,18 +1,31 @@
----
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: nayan-app
+#   labels:
+#     app: nayan-app
+# spec:
+#   ports:
+#   - name: http
+#     port: 3000
+#     protocol: TCP
+#     targetPort: 3000
+#   selector:
+#     app: nayan-app
+#   type: NodePort
+
+# ...
+
 apiVersion: v1
 kind: Service
 metadata:
   name: nayan-app
-  labels:
-    app: nayan-app
 spec:
-  ports:
-  - name: http
-    port: 3000
-    protocol: TCP
-    targetPort: 3000
+  type: NodePort
   selector:
     app: nayan-app
-  type: NodePort
-
-...
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30080
