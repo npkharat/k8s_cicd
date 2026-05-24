@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nayan-app
+  labels:
+    app: nayan-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nayan-app
+  template:
+    metadata:
+      labels:
+        app: nayan-app
+    spec:
+      containers:
+      - name: nayan-app-container
+        image: npkharat/amazon-clone:latest
+        ports:
+        - containerPort: 3000
+...

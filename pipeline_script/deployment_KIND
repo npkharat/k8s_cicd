@@ -1,0 +1,53 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main',
+                url: 'https://github.com/npkharat/amazon-clone.git'
+            }
+        }
+
+        stage('Verify Kubernetes Connection') {
+            steps {
+                sh 'kubectl get nodes'
+            }
+        }
+
+        stage('Deploy to KIND Cluster') {
+            steps {
+                sh '''
+                kubectl apply -f k8s_files/deployment.yaml
+                kubectl apply -f k8s_files/service.yaml
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                kubectl get deployments
+                kubectl get pods
+                kubectl get svc
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CD Pipeline executed successfully!'
+        }
+        failure {
+            echo 'CD Pipeline failed!'
+        }
+    }
+}

@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+
+    environment {
+        KUBECTL = '/usr/local/bin/kubectl'
+    }
+
+    parameters {
+        string(name: 'CLUSTER_NAME', defaultValue: 'amazon-prime-cluster', description: 'Enter your EKS cluster name')
+    }
+
+    stages {
+        stage("Login to EKS") {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'access-key', variable: 'AWS_ACCESS_KEY'),
+                                     string(credentialsId: 'secret-key', variable: 'AWS_SECRET_KEY')]) {
+                        sh "aws eks --region us-east-1 update-kubeconfig --name ${params.CLUSTER_NAME}"
+                    }
+                }
+            }
+        }
+
+        stage("Configure Prometheus & Grafana") {
+            steps {
+                script {
+                    sh """
+                    helm repo add stable https://charts.helm.sh/stable || true
+                    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+                    # Check if namespace 'prometheus' exists
+                    if kubectl get namespace prometheus > /dev/null 2>&1; then
+                        # If namespace exists, upgrade the Helm release
+                        helm upgrade stable prometheus-community/kube-prometheus-stack -n prometheus
+                    else
+                        # If namespace does not exist, create it and install Helm release
+                        kubectl create namespace prometheus
+                        helm install stable prometheus-community/kube-prometheus-stack -n prometheus
+                    fi
+                    kubectl patch svc stable-kube-prometheus-sta-prometheus -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+                    kubectl patch svc stable-grafana -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+                    """
+                }
+            }
+        }
+
+        stage("Configure ArgoCD") {
+            steps {
+                script {
+                    sh """
+                    # Create namespace if it doesn't exist
+                    kubectl create namespace argocd || true
+                    
+                    # Use idempotent installation with --server-side and skip CRDs if they exist
+                    if ! kubectl get crd applications.argoproj.io > /dev/null 2>&1; then
+                        echo "Installing ArgoCD CRDs..."
+                        kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side
+                    else
+                        echo "CRDs already exist, applying core manifests only..."
+                        # Download and filter manifests to skip CRDs
+                        curl -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml | \\
+                        grep -v '^apiVersion: apiextensions.k8s.io/v1' | \\
+                        grep -v '^kind: CustomResourceDefinition' | \\
+                        kubectl apply -f - -n argocd
+                    fi
+                    
+                    # Wait for ArgoCD to be ready
+                    sleep 30
+                    
+                    # Patch service to LoadBalancer
+                    kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}' || true
+                    """
+                }
+            }
+        }
+		
+    }
+}

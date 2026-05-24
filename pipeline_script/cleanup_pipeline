@@ -1,0 +1,44 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Verify Kubernetes Connection') {
+            steps {
+                sh 'kubectl get nodes'
+            }
+        }
+
+        stage('Clean Deployment and Service') {
+            steps {
+                sh '''
+                echo "Deleting Deployment..."
+                kubectl delete deployment pandacloud-app --ignore-not-found=true
+
+                echo "Deleting Service..."
+                kubectl delete service pandacloud-app --ignore-not-found=true
+                '''
+            }
+        }
+
+        stage('Verify Cleanup') {
+            steps {
+                sh '''
+                kubectl get deployments
+                kubectl get pods
+                kubectl get svc
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Cleanup completed successfully!'
+        }
+
+        failure {
+            echo 'Cleanup pipeline failed!'
+        }
+    }
+}
