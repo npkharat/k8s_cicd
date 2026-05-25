@@ -21,4 +21,4 @@ spec:
       prune: true
       selfHeal: true
 
-  #you can create the project manually or use this script to create project - This step should be performed after deploying argoCD.
+  #you can create the project manually using argoCD UI or use this script to create project - This step should be performed after deploying argoCD.
